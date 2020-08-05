@@ -7,6 +7,7 @@ declare(strict_types=1);
 */
 namespace MikeRangel\SkyWars\Tasks;
 use MikeRangel\SkyWars\{SkyWars, PluginUtils, Arena\Arena};
+use MikeRangel\Core\{Proxy\Proxy};
 use pocketmine\{Server, Player, scheduler\Task, math\Vector3, item\Item, utils\TextFormat as Color};
 use pocketmine\network\mcpe\protocol\{AddActorPacket, PlaySoundPacket, LevelSoundEventPacket, StopSoundPacket};
 use pocketmine\level\sound\{EndermanTeleportSound};
@@ -31,6 +32,7 @@ class ArenaID extends Task {
                 }
                 if (Arena::getArenas() == null) {
                     $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::RED . ' No arenas available for now,' . Color::RED . ' try again.');
+                    Proxy::transfer($player, 'lobby');
                 } else {
                     $arenas = (count(Arena::getArenas()) + 1);
                     if (self::$id >= $arenas) {
@@ -63,7 +65,7 @@ class ArenaID extends Task {
 }
 
 class NewGame extends Task {
-    public $time = 4;
+    public $time = 7;
     public $player;
 
     public function __construct(Player $player) {

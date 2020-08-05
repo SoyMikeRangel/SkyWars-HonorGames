@@ -6,8 +6,8 @@ declare(strict_types=1);
  * Server: @PacmanLivePE 
 */
 namespace MikeRangel\SkyWars;
-use MikeRangel\SkyWars\{Database\MySQL, Arena\Arena, Bossbar\Bossbar, Executor\Commands, Tasks\NewMap, Events\GlobalEvents, Tasks\GameScheduler};
-use pocketmine\{Server, Player, plugin\PluginBase, entity\Entity, utils\Config, utils\TextFormat as Color};
+use MikeRangel\SkyWars\{Database\MySQL, Arena\Arena, Bossbar\Bossbar, Executor\Commands, Tasks\NewMap, Events\GlobalEvents, Tasks\GameScheduler, Extensions\entity\FireworksRocket, Extensions\item\Fireworks};
+use pocketmine\{Server, Player, plugin\PluginBase, entity\Entity, item\Item, item\ItemFactory, utils\Config, utils\TextFormat as Color};
 
 class SkyWars extends PluginBase {
     public static $instance;
@@ -17,7 +17,7 @@ class SkyWars extends PluginBase {
         'host' => '127.0.0.1',
         'user' => 'mikerangel',
         'password' => 'pulguis36',
-        'database' => 'webhonor'
+        'database' => 'honorgames'
     ];
     public static $data = [
         'prefix' => Color::GOLD . '',
@@ -41,6 +41,11 @@ class SkyWars extends PluginBase {
         } else {
             $this->getLogger()->info(Color::GREEN . 'Connection to the database has been successfully established.');
         }
+        ItemFactory::registerItem(new Fireworks());
+        Item::initCreativeItems();
+        if(!Entity::registerEntity(FireworksRocket::class, false, ["FireworksRocket"])) {
+			$this->getLogger()->error("Failed to register FireworksRocket entity with savename 'FireworksRocket'");
+		}
         $this->getLogger()->info(Color::GREEN . 'Plugin activated successfully.');
         $this->loadResources();
         $this->loadCommands();
@@ -74,10 +79,10 @@ class SkyWars extends PluginBase {
         self::$data['vote'][Arena::getName($arena)]['op'] = [];
         self::$data['vote'][Arena::getName($arena)]['normal'] = [];
         $config->set('status', 'waiting');
-        $config->set('lobbytime', 30);
+        $config->set('lobbytime', 60);
         $config->set('startingtime', 1);
         $config->set('gametime', 600);
-        $config->set('refilltime', 120);
+        $config->set('refilltime', 180);
         $config->set('endtime', 9);
         $config->save();
     }
@@ -91,7 +96,10 @@ class SkyWars extends PluginBase {
         }
         $config = self::getConfigs('config');
         if ($config->get('chestitems') == null) {
-            $config->set('chestitems', [[1,0,30], [1,0,20], [3,0,15], [3,0,25], [4,0,35], [4,0,15], [260,0,5], [261,0,1], [262,0,6], [267,0,1], [268,0,1], [272,0,1], [276,0,1], [283,0,1], [297,0,3], [298,0,1], [299,0,1], [300,0,1], [301,0,1], [303,0,1], [304,0,1], [310,0,1], [313,0,1], [314,0,1], [315,0,1], [316,0,1], [317,0,1], [320,0,4], [354,0,1], [364,0,4], [366,0,5], [391,0,5]]);
+            $config->set('chestitems', [[346, 0, 1], [346, 0, 1], [306, 0, 1], [307, 0, 1], [308, 0, 1], [309, 0, 1], [309, 0, 1], [310, 0, 1], [311, 0, 1],
+            [312, 0, 1], [313, 0, 1], [267, 0, 1], [276, 0, 1], [279, 0, 1], [278, 0, 1], [257, 0, 1], [322, 0, 2], [322, 0, 4], [368, 0, 1],
+            [364, 0, 3], [364, 0, 7], [1, 0, 32], [5, 0, 32], [261, 0, 1], [262, 0, 15], [262, 0, 10], [332, 0, 7], [332, 0, 14], [345, 0, 1],
+            [1, 0, 32], [5, 0, 32], [46, 0, 3], [259, 0, 1], [325, 8, 1], [325, 8, 1], [325, 10, 1], [325, 10, 1]]);
             $config->save();
         }
     }

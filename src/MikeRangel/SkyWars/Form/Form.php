@@ -1,46 +1,90 @@
 <?php
-declare(strict_types = 1);
-/* 
- * Author: @MikeRangelMR
- * Status: Private
- * Server: @HonorGames_ 
-*/
+declare(strict_types=1);
 namespace MikeRangel\SkyWars\Form;
-use pocketmine\{Player, form\Form as IForm};
 
-abstract class Form implements IForm{
-    protected $data = [];
-    private $callable;
+use Closure;
+use pocketmine\Player;
+use pocketmine\utils\Utils;
+use function array_merge;
 
-    public function __construct(?callable $callable) {
-        $this->callable = $callable;
-    }
+abstract class Form implements \pocketmine\form\Form
+{
+	protected const TYPE_MODAL = 'modal';
+	protected const TYPE_MENU = 'form';
+	protected const TYPE_CUSTOM_FORM = 'custom_form';
 
-    public function sendToPlayer(Player $player) : void {
-        $player->sendForm($this);
-    }
+	/** @var string */
+	private $title;
 
-    public function getCallable() : ?callable {
-        return $this->callable;
-    }
+	/** @var Closure|null */
+	protected $onSubmit;
+	/** @var Closure|null */
+	protected $onClose;
 
-    public function setCallable(?callable $callable) {
-        $this->callable = $callable;
-    }
+	/**
+	 * @param string $title
+	 */
+	public function __construct(string $title)
+	{
+		$this->title = $title;
+	}
 
-    public function handleResponse(Player $player, $data) : void {
-        $this->processData($data);
-        $callable = $this->getCallable();
-        if($callable !== null) {
-            $callable($player, $data);
-        }
-    }
+	/**
+	 * @param string $title
+	 * @return self
+	 */
+	public function setTitle(string $title): self
+	{
+		$this->title = $title;
+		return $this;
+	}
 
-    public function processData(&$data) : void {
-    }
+	/**
+	 * @return string
+	 */
+	abstract protected function getType(): string;
 
-    public function jsonSerialize(){
-        return $this->data;
-    }
+	/**
+	 * @return callable
+	 */
+	abstract protected function getOnSubmitCallableSignature(): callable;
+
+	/**
+	 * @return array
+	 */
+	abstract protected function serializeFormData(): array;
+
+	/**
+	 * @param Closure $onSubmit
+	 * @return self
+	 */
+	public function onSubmit(Closure $onSubmit): self
+	{
+		Utils::validateCallableSignature($this->getOnSubmitCallableSignature(), $onSubmit);
+		$this->onSubmit = $onSubmit;
+		return $this;
+	}
+
+	/**
+	 * @param Closure $onClose
+	 * @return self
+	 */
+	public function onClose(Closure $onClose): self
+	{
+		Utils::validateCallableSignature(function (Player $player): void {
+		}, $onClose);
+		$this->onClose = $onClose;
+		return $this;
+	}
+
+	/**
+	 * @return array
+	 */
+	final public function jsonSerialize(): array
+	{
+		return array_merge(
+			['title' => $this->title, 'type' => $this->getType()],
+			$this->serializeFormData()
+		);
+	}
 }
-?>

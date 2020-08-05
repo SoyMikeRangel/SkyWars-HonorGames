@@ -73,10 +73,10 @@ class Arena {
             'arena' => $arena,
             'maxslots' => $slots,
             'status' => 'editing',
-            'lobbytime' => 30,
+            'lobbytime' => 60,
             'startingtime' => 1,
             'gametime' => 600,
-            'refilltime' => 120,
+            'refilltime' => 180,
             'endtime' => 9
         ]);
         $config->save();

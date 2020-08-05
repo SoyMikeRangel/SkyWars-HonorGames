@@ -3,96 +3,99 @@ declare(strict_types=1);
 /* 
  * Author: @MikeRangelMR
  * Status: Private
- * Server: @HonorGames_ 
+ * Server: @PacmanLivePE 
 */
 namespace MikeRangel\SkyWars\Form;
-use MikeRangel\SkyWars\Mailer\{PHPMailer, SMTP, Exception};
-use MikeRangel\SkyWars\{SkyWars, Utils};
-use pocketmine\{Server, Player, entity\Effect, entity\EffectInstance, utils\TextFormat as Color};
+use MikeRangel\SkyWars\{SkyWars, PluginUtils, Arena\Arena, Tasks\Emotes, Tasks\ArenaID, Form2\CustomForm, Form\MenuForm, Form\elements\Button};
+use pocketmine\{Server, Player, item\Item, entity\Effect, math\Vector3, entity\EffectInstance, utils\TextFormat as Color};
 
 class FormManager {
-    private static $data = [
-        'email' => 'support@honorgames.com.mx',
-        'user' => 'HonorGames',
-        'password' => 'pulguis36',
-        'host' => 'smtp.gmail.com'
-    ];
 
-    public static function sendEmail(string $email, string $title, string $description) {
-        $php = new PHPMailer();
-        try {
-            $php->SMTPDebug = SMTP::DEBUG_SERVER;
-            $php->isSMTP();
-            $php->Host = self::$data['host'];
-            $php->SMTPAuth = true;
-            $php->Username = self::$data['email'];
-            $php->Password = self::$data['password'];
-            $php->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $php->Port = 587;
-            $php->setFrom(self::$data['email'], self::$data['user']);
-            $php->addAddress($email);
-            $php->isHTML(true);
-            $php->Subject = $title;
-            $php->Body = $description;
-            if ($php->send()) {
-                SkyWars::getInstance()->getLogger()->info(Color::GREEN . '[SendMailer] The email has been sent to: ' . $email);
-            } else {
-                SkyWars::getInstance()->getLogger()->info(Color::RED . '[SendMailer] The email has not been sent to: ' . $email);
-            }
-        } catch (Exception $event) {
-            var_dump('[SendMailer] Message could not be sent. Mailer Error: {$php->ErrorInfo}');
-        }
+    public static function getPlayersUI(Player $player) {
+        $player->sendForm(new MenuForm(Color::BOLD . Color::GREEN . 'PLAYERS REAMING', Color::GRAY . 'Choose who to see.',
+        self::getButtonsAlive($player),
+        static function (Player $player, Button $button) : void {
+            $explode = explode("\n", $button->getText());
+            $name = substr($explode[0], 3);
+            $pl = Server::getInstance()->getPlayer($name);
+            $player->teleport(new Vector3($pl->getX(), $pl->getY(), $pl->getZ()));
+        }));
     }
 
-    public static function getRegisterUI(Player $player) {
-        $form = new CustomForm(function (Player $player, array $data = null) {
-            if ($data[0] != null && $data[1] != null && $data[2] != null) {
-                $email = (string)$data[0];
-                $password = (string)$data[1];
-                $passwordr = (string)$data[2];
-                if (filter_var($data[0], FILTER_VALIDATE_EMAIL)) {
-                    if ($password == $passwordr) {
-                        $sql = SkyWars::getDatabase()->getUser();
-                        $sql->add($player, $email, $password);
-                        $player->sendMessage(Color::GREEN . 'You have successfully registered.');
-                        $player->addEffect(new EffectInstance(Effect::getEffect(Effect::BLINDNESS)));
-                        $player->addTitle(Color::BOLD . Color::LIGHT_PURPLE . 'Honor' . Color::WHITE . 'Games', Color::GRAY . 'Welcome');
-                        Utils::getGuardian($player);
-                        self::sendEmail($email, 'Welcome!', 'Now that you are part of our community, log in to our website with your same username and password.');
-                    } else {
-                        $player->close('', Color::RED . 'Passwords do not match.');
+    public static function getButtonsAlive(Player $player) {
+        $buttons = [];
+        foreach (Arena::getArenas() as $arena) {
+            if ($player->getLevel()->getFolderName() == Arena::getName($arena)) {
+                foreach ($player->getLevel()->getPlayers() as $players) {
+                    if ($players->getGamemode() == 0) {
+                        $buttons[] = new Button(Color::BOLD . $players->getName() . "\n" . Color::RESET . Color::BLACK . 'Click to view');
                     }
-                } else {
-                    $player->close('', Color::RED . 'This email is not valid on our server, please try using another one.');
-                }
-            } else {
-                $player->close('', Color::RED . 'You must register to be part of the server.');
+                }           
             }
-        });
-        $form->setTitle(Color::BOLD . Color::RED . 'SIGN UP');
-        $form->addInput('Insert your email:', 'accout@gmail.com');
-        $form->addInput('Insert your password:', 'password123');
-        $form->addInput('Insert your password:', 'password123');
-        $form->sendToPlayer($player);
+        }
+        return $buttons;
     }
 
-    public static function getLoginUI(Player $player) {
-        $form = new CustomForm(function (Player $player, array $data = null) {
-            if ($data[0] != null) {
-                $password = (string)$data[0];
-                $sql = SkyWars::getDatabase()->getUser();
-                if ($password == $sql->getPassword($player)) {
-                    $player->sendMessage(Color::GREEN . 'You have successfully logged in.');
-                    $player->addEffect(new EffectInstance(Effect::getEffect(Effect::BLINDNESS)));
-                    $player->addTitle(Color::BOLD . Color::LIGHT_PURPLE . 'Honor' . Color::WHITE . 'Games', Color::GRAY . 'Thanks for coming back');
-                    Utils::getGuardian($player);
-                } else {
-                    $player->close('', Color::RED . "Your password is wrong." . "\n" . "In case you've forgotten, contact the evidence at @HonorGames_.");
-                }
+    public static function getVotesUI(Player $player) {
+        $player->sendForm(new MenuForm(Color::BOLD . Color::GREEN . 'VOTE CHEST', Color::GRAY . 'Vote for your favorite chest.',
+        [
+            new Button(Color::GRAY . 'OP[' . Color::GREEN . count(SkyWars::$data['vote'][$player->getLevel()->getFolderName()]['op']) . Color::GRAY . ']' . Color::RESET . "\n" . Color::BLACK . 'Click to select'),
+            new Button(Color::GRAY . 'Basic[' . Color::GREEN . count(SkyWars::$data['vote'][$player->getLevel()->getFolderName()]['normal']) . Color::GRAY . ']' . Color::RESET . "\n" . Color::BLACK . 'Click to select'),
+        ],
+        static function (Player $player, Button $button) : void {
+            switch ($button->getValue()) {
+                case 0:
+                    if ($player->hasPermission('skywars.vote.perm')) {
+                        if (count(Server::getInstance()->getLevelByName($player->getLevel()->getFolderName())->getPlayers()) < 2) {
+                            $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::RED . 'More players are needed to access this feature.');
+                        } else {
+                            PluginUtils::setVote($player, $player->getLevel()->getFolderName(), 'op');
+                        }
+                    } else {
+                        $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::RED . 'Adquire a range to access this function.');
+                    }
+                break;
+                case 1:
+                    if ($player->hasPermission('skywars.vote.perm')) {
+                        if (count(Server::getInstance()->getLevelByName($player->getLevel()->getFolderName())->getPlayers()) < 2) {
+                            $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::RED . 'More players are needed to access this feature');
+                        } else {
+                            PluginUtils::setVote($player, $player->getLevel()->getFolderName(), 'normal');
+                        }
+                    } else {
+                        $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::RED . 'Adquire a range to access this function.');
+                    }
+                break;
             }
-        });
-        $form->setTitle(Color::BOLD . Color::GREEN . 'LOG IN');
-        $form->addInput('Insert your password:', 'password123');
-        $form->sendToPlayer($player);
+        }));
+    }
+
+    public static function getKitsUI(Player $player) {
+        $player->sendForm(new MenuForm(Color::BOLD . Color::GREEN . 'KITS', Color::GRAY . 'Select your kit.',
+        [
+            new Button(Color::BOLD . 'Builder' . Color::RESET . "\n" . Color::RESET . Color::BLACK . 'Status: ' . Color::GREEN . 'Unlocked'),
+            new Button(Color::BOLD . 'Gappler' . Color::RESET . "\n" . Color::RESET . Color::BLACK . 'Status: ' . Color::GREEN . 'Unlocked'),
+            new Button(Color::BOLD . 'Rusher' . Color::RESET . "\n" . Color::RESET . Color::BLACK . 'Status: ' . Color::GREEN . 'Unlocked')
+        ],
+        static function (Player $player, Button $button) : void {
+            switch ($button->getValue()) {
+                case 0:
+                    $config = SkyWars::getConfigs('kits');
+                    $config->set($player->getName(), 'builder');
+                    $config->save();
+                break;
+                case 1:
+                    $config = SkyWars::getConfigs('kits');
+                    $config->set($player->getName(), 'gappler');
+                    $config->save();
+                break;
+                case 2:
+                    $config = SkyWars::getConfigs('kits');
+                    $config->set($player->getName(), 'rusher');
+                    $config->save();
+                break;
+            }
+        }));
     }
 }
+?>

@@ -64,7 +64,7 @@ class PluginUtils {
                     if (!isset(SkyWars::$data['vote'][$arena]['op'][$player->getName()])) {
                         SkyWars::$data['vote'][$arena]['op'][$player->getName()] = $player->getName();
                         foreach (Server::getInstance()->getLevelByName($arena)->getPlayers() as $players) {
-                            $players->sendMessage(TextFormat::GOLD . $player->getName() . ' You voted for chests OP.');
+                            $players->sendMessage(TextFormat::GRAY . $player->getName() . ' You voted for chests OP.');
                             $player->getLevel()->broadcastLevelSoundEvent($player, LevelSoundEventPacket::SOUND_ENDERCHEST_OPEN);
                         }
                     } else {
@@ -81,7 +81,7 @@ class PluginUtils {
                     if (!isset(SkyWars::$data['vote'][$arena]['normal'][$player->getName()])) {
                         SkyWars::$data['vote'][$arena]['normal'][$player->getName()] = $player->getName();
                         foreach (Server::getInstance()->getLevelByName($arena)->getPlayers() as $players) {
-                            $players->sendMessage(TextFormat::GOLD . $player->getName() . ' You voted for chests Basic.');
+                            $players->sendMessage(TextFormat::GRAY . $player->getName() . ' You voted for chests Basic.');
                             $player->getLevel()->broadcastLevelSoundEvent($player, LevelSoundEventPacket::SOUND_ENDERCHEST_OPEN);
                         }
                     } else {
@@ -103,6 +103,11 @@ class PluginUtils {
             if (Arena::getStatus($id) == 'waiting') {
                 if (count(Arena::getPlayers($id)) < Arena::getSpawns($id)) {
                     SkyWars::$data['damager'][$player->getName()] = 'string';
+                    $kit = SkyWars::getConfigs('kits');
+                    if ($kit->get($player->getName()) == null) {
+                        $kit->set($player->getName(), 'none');
+                        $kit->save();
+                    }
                     $player->getInventory()->clearAll();
                     $player->getArmorInventory()->clearAll();
                     $player->sendMessage(TextFormat::GREEN . TextFormat::BOLD . '» ' . TextFormat::RESET . TextFormat::GREEN . 'An available game has been found.');
@@ -117,10 +122,13 @@ class PluginUtils {
                     $player->setHealth(20);
                     $player->setFood(20);
                     $player->setScale(1);
+                    $player->getInventory()->setItem(0, Item::get(261, 0, 1)->setCustomName(TextFormat::BOLD . TextFormat::GREEN . "KITS\n§r§fClick to select"));
+                    $player->getInventory()->setItem(4, Item::get(54, 0, 1)->setCustomName(TextFormat::BOLD . TextFormat::GREEN . "VOTE CHEST\n§r§fClick to select"));
+                    $player->getInventory()->setItem(8, Item::get(355, 14, 1)->setCustomName(TextFormat::BOLD . TextFormat::RED . "LEAVE\n§r§fClick to select"));
                     foreach ($world->getPlayers() as $players) {
                         $players_array[] = $players->getName();
                     }
-                    $player->sendMessage(TextFormat::GOLD . join(TextFormat::GOLD  . ', ' . TextFormat::GOLD, $players_array) . TextFormat::GOLD . '.');
+                    $player->sendMessage(TextFormat::GREEN . join(TextFormat::GREEN  . ', ' . TextFormat::GREEN, $players_array) . TextFormat::GREEN . '.');
                     $player->getLevel()->addSound(new EndermanTeleportSound($player));
                     foreach ($world->getPlayers() as $players) {
                         $players->sendMessage(TextFormat::GREEN . TextFormat::BOLD . '» ' . TextFormat::RESET . TextFormat::DARK_GRAY . $player->getName() . ' ' . 'Joined the game.' . ' ' . TextFormat::DARK_GRAY . '[' . TextFormat::DARK_GRAY . count($world->getPlayers()) . TextFormat::DARK_GRAY . '/' . TextFormat::DARK_GRAY . Arena::getSpawns($id) . TextFormat::DARK_GRAY . ']');
@@ -140,9 +148,11 @@ class PluginUtils {
                     $user = SkyWars::getDatabase()->getUser();
                     if ($user->inDatabase($damager)) {
                         $user->addKills($damager, 1);
+                        $user->addCoins($damager, 1);
                     }
                     foreach ($damager->getLevel()->getPlayers() as $players) {
-                        $players->sendMessage(TextFormat::RED . $player->getName() . TextFormat::GRAY . ' ' . $cause . ' ' . TextFormat::GOLD . $damager->getName() . '.');
+                        $player->addTitle(TextFormat::BOLD . TextFormat::RED . 'You died', TextFormat::GRAY . 'By ' . $damager->getName());
+                        $players->sendMessage(TextFormat::RED . $player->getName() . TextFormat::GRAY . ' ' . $cause . ' ' . TextFormat::GREEN . $damager->getName() . '.');
                         $remain = (count(Arena::getPlayers($arena)) - 1);
                         if ($remain > 1) {
                             $players->sendMessage(TextFormat::RED . $remain . ' players remain alive.');
@@ -150,6 +160,7 @@ class PluginUtils {
                     }
                 } else {
                     foreach ($player->getLevel()->getPlayers() as $players)  {
+                        $player->addTitle(TextFormat::BOLD . TextFormat::RED . 'You died', TextFormat::GRAY . 'You lost the game');
                         $players->sendMessage(TextFormat::RED . $player->getName() . TextFormat::GRAY . ' ' . $cause . '.');
                         $remain = (count(Arena::getPlayers($arena)) - 1);
                         if ($remain > 1) {
@@ -163,33 +174,83 @@ class PluginUtils {
                 self::addStrike(Server::getInstance()->getLevelByName($player->getLevel()->getFolderName())->getPlayers(), $player);
                 $player->removeAllEffects();
                 $player->addEffect(new EffectInstance(Effect::getEffect(Effect::BLINDNESS), 20, 3));
-                switch (rand(1, 2)) {
-                    case 1:
-                        $player->addTitle(TextFormat::BOLD . TextFormat::RED . '¡You died!', TextFormat::YELLOW . 'You lost the game');
-                    break;
-                    case 2:
-                        $player->addTitle(TextFormat::BOLD . TextFormat::RED . '¡You died!', TextFormat::YELLOW . 'Good luck next time');
-                    break;
-                }
                 $player->teleport(new Vector3($lobby[0], $lobby[1], $lobby[2]));
                 $player->setGamemode(3);
                 $player->setHealth(20);
                 $player->setFood(20);
                 $player->getInventory()->clearAll();
                 $player->getArmorInventory()->clearAll();
-                $player->sendMessage(TextFormat::BOLD . TextFormat::GREEN . '» ' . TextFormat::RESET . TextFormat::YELLOW . 'The search for a new game will begin, cancel the wait using the remaining item of the players to continue watching.');
+                $player->sendMessage(TextFormat::BOLD . TextFormat::GREEN . '» ' . TextFormat::RESET . TextFormat::YELLOW . 'The search for a new game has started, cancel the wait using the item (Leave the queue) found in your inventory.');
                 if (!in_array($player->getName(), SkyWars::$data['queue'])) {
                     SkyWars::$data['queue'][] = $player->getName();
                     SkyWars::getInstance()->getScheduler()->scheduleRepeatingTask(new NewGame($player), 10);
                 }
-                $player->getInventory()->setItem(0, Item::get(381, 0, 1)->setCustomName(TextFormat::GOLD . "Players Reaming\n§r§fClick to select"));
-                $player->getInventory()->setItem(4, Item::get(120, 0, 1)->setCustomName(TextFormat::LIGHT_PURPLE . "Random Game\n§r§fClick to select"));
-                $player->getInventory()->setItem(8, Item::get(355, 14, 1)->setCustomName(TextFormat::RED . "Leave\n§r§fClick to select"));
+                $player->getInventory()->setItem(0, Item::get(381, 0, 1)->setCustomName(TextFormat::BOLD . TextFormat::GREEN . "PLAYERS REAMING\n§r§fClick to select"));
+                $player->getInventory()->setItem(3, Item::get(331, 0, 1)->setCustomName(TextFormat::BOLD . TextFormat::RED . "LEAVE QUEUE\n§r§fClick to select"));
+                $player->getInventory()->setItem(5, Item::get(120, 0, 1)->setCustomName(TextFormat::BOLD . TextFormat::GREEN . "RANDOM GAME\n§r§fClick to select"));
+                $player->getInventory()->setItem(8, Item::get(355, 14, 1)->setCustomName(TextFormat::BOLD . TextFormat::RED . "LEAVE\n§r§fClick to select"));
             } else {
                 $player->teleport(new Vector3($lobby[0], $lobby[1], $lobby[2]));
             }
         } else {
             $player->teleport(new Vector3($lobby[0], $lobby[1], $lobby[2]));
+        }
+    }
+
+    public static function getKits(Player $player, string $value) {
+        switch ($value) {
+            case 'builder':
+                $player->getInventory()->addItem(Item::get(Item::STONE, 0, 64));
+            break;
+            case 'gappler':
+                $player->getInventory()->addItem(Item::get(Item::GOLDEN_APPLE, 0, 3));
+            break;
+            case 'rusher':
+                $player->getInventory()->addItem(Item::get(267, 0, 1));
+                $player->getInventory()->addItem(Item::get(Item::STONE, 0, 64));
+            break;
+            default:
+            break;
+        }
+    }
+
+    public static function viewHealth(Player $player) {
+        $health = (int)round($player->getHealth() / 2);
+        switch ($health) {
+            case 10:
+                return str_repeat(TextFormat::GREEN . '❤', 10);
+            break;
+            case 9:
+                return str_repeat(TextFormat::GREEN . '❤', 9) . str_repeat(TextFormat::GRAY . '❤', 1);
+            break;
+            case 8:
+                return str_repeat(TextFormat::GREEN . '❤', 8) . str_repeat(TextFormat::GRAY . '❤', 2);
+            break;
+            case 7:
+                return str_repeat(TextFormat::GREEN . '❤', 7) . str_repeat(TextFormat::GRAY . '❤', 3);
+            break;
+            case 6:
+                return str_repeat(TextFormat::GREEN . '❤', 6) . str_repeat(TextFormat::GRAY . '❤', 4);
+            break;
+            case 5:
+                return str_repeat(TextFormat::GREEN . '❤', 5) . str_repeat(TextFormat::GRAY . '❤', 5);
+            break;
+            case 4:
+                return str_repeat(TextFormat::GREEN . '❤', 4) . str_repeat(TextFormat::GRAY . '❤', 6);
+            break;
+            case 3:
+                return str_repeat(TextFormat::GREEN . '❤', 3) . str_repeat(TextFormat::GRAY . '❤', 7);
+            break;
+            case 2:
+                return str_repeat(TextFormat::GREEN . '❤', 2) . str_repeat(TextFormat::GRAY . '❤', 8);
+            break;
+            case 1:
+                return str_repeat(TextFormat::GREEN . '❤', 1) . str_repeat(TextFormat::GRAY . '❤', 9);
+
+            break;
+            case 0:
+                return str_repeat(TextFormat::GREEN . '❤', 10);
+            break;
         }
     }
 
@@ -239,12 +300,17 @@ class PluginUtils {
                             $contentstwoOP = self::getContentsTwo()[$contents];
                             $item = Item::get($contentstwoOP[0], $contentstwoOP[1], $contentstwoOP[2]);
                             if ($item->getId() == Item::DIAMOND_SWORD ||
-                                $item->getId() == Item::IRON_SWORD ||
                                 $item->getId() == Item::STONE_AXE ||
                                 $item->getId() == Item::IRON_AXE ||
                                 $item->getId() == Item::GOLD_SWORD) {
                                 $flame = Enchantment::getEnchantment(Enchantment::FLAME);
                                 $punch = Enchantment::getEnchantment(Enchantment::PUNCH);
+                                $rray = array($flame, $punch);
+                                shuffle($rray);
+                                $item->addEnchantment(new EnchantmentInstance($rray[0], mt_rand(1, 5)));
+                            } else if ($item->getId() == Item::IRON_SWORD) {
+                                $punch = Enchantment::getEnchantment(Enchantment::PUNCH);
+                                $flame = Enchantment::getEnchantment(Enchantment::FIRE_ASPECT);
                                 $rray = array($flame, $punch);
                                 shuffle($rray);
                                 $item->addEnchantment(new EnchantmentInstance($rray[0], mt_rand(1, 5)));

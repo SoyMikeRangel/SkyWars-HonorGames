@@ -6,8 +6,10 @@ declare(strict_types=1);
  * Server: @PacmanLivePE 
 */
 namespace MikeRangel\SkyWars\Events;
+use MikeRangel\Core\{Proxy\Proxy};
 use MikeRangel\SkyWars\{SkyWars, PluginUtils, Form\FormManager, Tasks\ArenaID, Arena\Arena, Entity\types\EntityHuman, Entity\types\EntityStats};
 use pocketmine\{Server, Player, event\Listener, math\Vector3, item\Item, utils\TextFormat as Color};
+use pocketmine\item\enchantment\{Enchantment, EnchantmentInstance};
 use pocketmine\event\{inventory\InventoryPickupItemEvent, player\PlayerPreLoginEvent, player\PlayerChatEvent, player\PlayerCommandPreprocessEvent, player\PlayerQuitEvent, player\PlayerDropItemEvent, player\PlayerMoveEvent, player\PlayerItemHeldEvent, player\PlayerInteractEvent, player\PlayerExhaustEvent, block\BlockBreakEvent, block\BlockPlaceEvent, entity\EntityLevelChangeEvent, entity\EntityDamageEvent, entity\EntityDamageByChildEntityEvent, entity\EntityDamageByEntityEvent};
 use pocketmine\level\sound\{BlazeShootSound};
 
@@ -66,24 +68,22 @@ class GlobalEvents implements Listener {
         $cmd = explode(' ', strtolower($event->getMessage()));
         foreach (Arena::getArenas() as $arena) {
             if ($player->getLevel()->getFolderName() == Arena::getName($arena)) {
-                if ($player->getGamemode() == 0 || $player->getGamemode() == 3) {
-                    if ($cmd[0] === '/gamemode') {
-                        $event->setCancelled(true);
-                    } else if ($cmd[0] === '/gm') {
-                        $event->setCancelled(true);
-                    } else if ($cmd[0] === '/fly') {
-                        $event->setCancelled(true);
-                    } else if ($cmd[0] === '/tp') {
-                        $event->setCancelled(true);
-                    } else if ($cmd[0] === '/kick') {
-                        $event->setCancelled(true);
-                    } else if ($cmd[0] === '/stop') {
-                        $event->setCancelled(true);
-                    } else if ($cmd[0] === '/kill') {
-                        $event->setCancelled(true);
-                    } else if ($cmd[0] === '/give') {
-                        $event->setCancelled(true);
-                    }
+                if ($cmd[0] === '/gamemode') {
+                    $event->setCancelled(true);
+                } else if ($cmd[0] === '/gm') {
+                    $event->setCancelled(true);
+                } else if ($cmd[0] === '/fly') {
+                    $event->setCancelled(true);
+                } else if ($cmd[0] === '/tp') {
+                    $event->setCancelled(true);
+                } else if ($cmd[0] === '/kick') {
+                    $event->setCancelled(true);
+                } else if ($cmd[0] === '/stop') {
+                    $event->setCancelled(true);
+                } else if ($cmd[0] === '/kill') {
+                    $event->setCancelled(true);
+                } else if ($cmd[0] === '/give') {
+                    $event->setCancelled(true);
                 }
             }
         }
@@ -96,15 +96,27 @@ class GlobalEvents implements Listener {
         $name = $event->getItem()->getCustomName();
         foreach (Arena::getArenas() as $arena) {
             if ($player->getLevel()->getFolderName() == Arena::getName($arena)) {
-                if ($player->getGamemode() == 0) {
-                    if ($id == 54 && $name == Color::GOLD . "Vote Chest\n§r§fClick to select") {
+                if ($player->getGamemode() != 1) {
+                    if ($id == 261 && $name == Color::BOLD . Color::GREEN . "KITS\n§r§fClick to select") {
+                        FormManager::getKitsUI($player);
+                    } else if ($id == 54 && $name == Color::BOLD . Color::GREEN . "VOTE CHEST\n§r§fClick to select") {
                         FormManager::getVotesUI($player);
-                    } else if ($id == 355 && $damage == 14 && $name == Color::RED . "Leave\n§r§fClick to select") {
+                    } else if ($id == 355 && $damage == 14 && $name == Color::BOLD . Color::RED . "LEAVE\n§r§fClick to select") {
                         $index = array_search($player->getName(), SkyWars::$data['queue']);
 		                if ($index != -1) {
                             unset(SkyWars::$data['queue'][$index]);
                         }
-                        Server::getInstance()->dispatchCommand($player, 'sw leave');
+                        Proxy::transfer($player, 'lobby');
+                    } else if ($id == 331 && $name == Color::BOLD . Color::RED . "LEAVE QUEUE\n§r§fClick to select") {
+                        $index = array_search($player->getName(), SkyWars::$data['queue']);
+		                if ($index != -1) {
+                            unset(SkyWars::$data['queue'][$index]);
+                        }
+                        $player->sendMessage(Color::BOLD . Color::GREEN . '» ' . Color::RESET . Color::YELLOW . 'The browser for a new game has been canceled.');
+                        $player->getInventory()->clearAll();
+                        $player->getInventory()->setItem(0, Item::get(381, 0, 1)->setCustomName(Color::BOLD . Color::GREEN . "PLAYERS REAMING\n§r§fClick to select"));
+                        $player->getInventory()->setItem(4, Item::get(120, 0, 1)->setCustomName(Color::BOLD . Color::GREEN . "RANDOM GAME\n§r§fClick to select"));
+                        $player->getInventory()->setItem(8, Item::get(355, 14, 1)->setCustomName(Color::BOLD . Color::RED . "LEAVE\n§r§fClick to select"));
                     }
                 }
             }
@@ -117,7 +129,19 @@ class GlobalEvents implements Listener {
         foreach (Arena::getArenas() as $arena) {
             if ($player->getLevel()->getFolderName() == Arena::getName($arena)) {
                 if ($player->getGamemode() == 3) {
-                    if ($item == Color::GOLD . "Emotes\n§r§fClick to select") {
+                    if ($item == Color::BOLD . Color::GREEN . "PLAYERS REAMING\n§r§fClick to select") {
+                        FormManager::getPlayersUI($player);
+                    } else if ($item == Color::BOLD . Color::GREEN . "RANDOM GAME\n§r§fClick to select") {
+                        if (!in_array($player->getName(), SkyWars::$data['queue'])) {
+                            SkyWars::$data['queue'][] = $player->getName();
+                            SkyWars::getInstance()->getScheduler()->scheduleRepeatingTask(new ArenaID($player), 10);
+                        }
+                    } else if ($item == Color::BOLD . Color::RED . "LEAVE\n§r§fClick to select") {
+                        $index = array_search($player->getName(), SkyWars::$data['queue']);
+		                if ($index != -1) {
+                            unset(SkyWars::$data['queue'][$index]);
+                        }
+                        Proxy::transfer($player, 'lobby');
                     }
                 }
             }
@@ -179,27 +203,6 @@ class GlobalEvents implements Listener {
         }
     }
 
-    public function onInventory(InventoryPickupItemEvent $event) {
-        $inventory = $event->getInventory();
-        $player = $inventory->getHolder();
-        foreach (Arena::getArenas() as $arena) {
-            if ($player->getLevel()->getFolderName() == Arena::getName($arena)) {
-                if (Arena::getStatus($arena) == 'waiting' || 
-                    Arena::getStatus($arena) == 'starting' ||
-                    Arena::getStatus($arena) == 'end'
-                ) {
-                    $event->setCancelled(false);
-                } else {
-                    if ($player->getGamemode() == 3) {
-                        $event->setCancelled(true);
-                    } else {
-                        $event->setCancelled(false);
-                    }
-                }
-            }
-        }
-    }
-
     public function onDrop(PlayerDropItemEvent $event) {
         $player = $event->getPlayer();
         foreach (Arena::getArenas() as $arena) {
@@ -231,27 +234,62 @@ class GlobalEvents implements Listener {
                 ) {
                     $event->setCancelled(true);
                 } else {
+                    if ($player->getGamemode() == 3) {
+                        $event->setCancelled(true);
+                    }
                     if (count(SkyWars::$data['vote'][Arena::getName($arena)]['op']) > count(SkyWars::$data['vote'][Arena::getName($arena)]['normal'])) {
+                        $protection = Enchantment::getEnchantment(Enchantment::PROTECTION);
+                        $punch = Enchantment::getEnchantment(Enchantment::PUNCH);
                         if ($block->getID() == 56) {
-                            $items = [310, 311, 312, 313, 276];
-                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), Item::get($items[array_rand($items)], 0, 1));
+                            $item = Item::get(310, 0, 1);
+                            $item->addEnchantment(new EnchantmentInstance($protection));
+                            $item1 = Item::get(311, 0, 1);
+                            $item1->addEnchantment(new EnchantmentInstance($protection));
+                            $item2 = Item::get(312, 0, 1);
+                            $item2->addEnchantment(new EnchantmentInstance($protection));
+                            $item3 = Item::get(313, 0, 1);
+                            $item3->addEnchantment(new EnchantmentInstance($protection));
+                            $item4 = Item::get(276, 0, 1);
+                            $item4->addEnchantment(new EnchantmentInstance($punch));
+                            $array = [$item, $item1, $item2, $item3, $item4];
+                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), $array[array_rand($array)]);
                         } else if ($block->getID() == 14) {
-                            $items = [314, 315, 316, 317, 286];
-                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), Item::get($items[array_rand($items)], 0, 1));
+                            $item = Item::get(314, 0, 1);
+                            $item->addEnchantment(new EnchantmentInstance($protection));
+                            $item1 = Item::get(315, 0, 1);
+                            $item1->addEnchantment(new EnchantmentInstance($protection));
+                            $item2 = Item::get(316, 0, 1);
+                            $item2->addEnchantment(new EnchantmentInstance($protection));
+                            $item3 = Item::get(317, 0, 1);
+                            $item3->addEnchantment(new EnchantmentInstance($protection));
+                            $item4 = Item::get(286, 0, 1);
+                            $item4->addEnchantment(new EnchantmentInstance($punch));
+                            $array = [$item, $item1, $item2, $item3, $item4];
+                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), $array[array_rand($array)]);
                         } else if ($block->getID() == 15){
-                            $items = [306, 307, 308, 309, 257];
-                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), Item::get($items[array_rand($items)], 0, 1));
+                            $item = Item::get(306, 0, 1);
+                            $item->addEnchantment(new EnchantmentInstance($protection));
+                            $item1 = Item::get(307, 0, 1);
+                            $item1->addEnchantment(new EnchantmentInstance($protection));
+                            $item2 = Item::get(308, 0, 1);
+                            $item2->addEnchantment(new EnchantmentInstance($protection));
+                            $item3 = Item::get(309, 0, 1);
+                            $item3->addEnchantment(new EnchantmentInstance($protection));
+                            $item4 = Item::get(257, 0, 1);
+                            $item4->addEnchantment(new EnchantmentInstance($punch));
+                            $array = [$item, $item1, $item2, $item3, $item4];
+                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), $array[array_rand($array)]);
                         }
                     } else {
                         if ($block->getID() == 56) {
-                            $items = [310, 311, 312, 313, 276];
-                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), Item::get($items[array_rand($items)], 0, 1));
+                            $array = [310, 311, 312, 313, 276];
+                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), Item::get($array[array_rand($array)], 0, 1));
                         } else if ($block->getID() == 14) {
-                            $items = [314, 315, 316, 317, 286];
-                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), Item::get($items[array_rand($items)], 0, 1));
+                            $array = [314, 315, 316, 317, 286];
+                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), Item::get($array[array_rand($array)], 0, 1));
                         } else if ($block->getID() == 15){
-                            $items = [306, 307, 308, 309, 257];
-                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), Item::get($items[array_rand($items)], 0, 1));
+                            $array = [306, 307, 308, 309, 257];
+                            Server::getInstance()->getLevelByName(Arena::getName($arena))->dropItem(new Vector3($block->getX(), $block->getY(), $block->getZ()), Item::get($array[array_rand($array)], 0, 1));
                         }
                     }
                     $event->setCancelled(false);

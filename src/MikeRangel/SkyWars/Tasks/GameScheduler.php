@@ -7,8 +7,8 @@ declare(strict_types=1);
 */
 namespace MikeRangel\SkyWars\Tasks;
 use MikeRangel\{Loader};
-use MikeRangel\SkyWars\{SkyWars, ResetMap, PluginUtils, Arena\Arena};
-use MikeRangel\Core\{Proxy\Proxy};
+use MikeRangel\SkyWars\{SkyWars, ResetMap, PluginUtils, Arena\Arena, Extensions\FireworksTask};
+use MikeRangel\Core\{Lobby\Device, Proxy\Proxy};
 use pocketmine\{Server, Player, level\Level, item\Item, level\Position, entity\Skin, math\Vector3, scheduler\Task, utils\TextFormat as Color};
 use pocketmine\network\mcpe\protocol\{ActorEventPacket, LevelEventPacket, LevelSoundEventPacket, ChangeDimensionPacket, PlayStatusPacket, types\DimensionIds};
 
@@ -25,13 +25,16 @@ class GameScheduler extends Task {
                 $timeend = Arena::getTimeEnd($arena);
                 if ($arenas instanceof Level) {
                     if (Arena::getStatus($arena) == 'waiting') {
+                        $arenas->setTime(20000);
+                        $arenas->stopTime();
                         foreach ($arenas->getPlayers() as $player) {
+                            SkyWars::getBossbar()->showTo($player, 'Complete...');
+                            $player->setNameTag(Color::DARK_GRAY . '[' . Color::GRAY . $player->getID() . Color::DARK_GRAY . ']' . ' ' . Color::GRAY . $player->getName());
+                            $player->setScoreTag(Device::getDevice($player));
                             SkyWars::$data['damager'][$player->getName()] = 'string';
                         }
                         if (count(Arena::getPlayers($arena)) < 2) {
                             foreach ($arenas->getPlayers() as $player) {
-                                $arenas->setTime(0);
-                                $arenas->stopTime();
                                 SkyWars::getReloadArena($arena);
                                 SkyWars::getBossbar()->updateFor($player, Color::BOLD . Color::GREEN . '» ' . Color::RESET . Color::RED . 'Waiting for players' . Color::BOLD . Color::GREEN . ' «' . Color::RESET, 0);
                             }
@@ -39,7 +42,7 @@ class GameScheduler extends Task {
                             $timelobby--;
                             Arena::setTimeWaiting($arena, $timelobby);
                             foreach ($arenas->getPlayers() as $player) {
-                                SkyWars::getBossbar()->updateFor($player, Color::BOLD . Color::GREEN . '» ' . Color::RESET . Color::GRAY . 'Starting game in ' . Color::GREEN . $timelobby . Color::GRAY . ' seconds' . Color::BOLD . Color::GREEN . ' «' . Color::RESET . "\n\n" . Color::GRAY . '         ' . 'OP [' . Color::GREEN . count(SkyWars::$data['vote'][Arena::getName($arena)]['op']) . Color::GRAY . ']' . ' - ' . 'Basic [' . Color::GREEN . count(SkyWars::$data['vote'][Arena::getName($arena)]['normal']) . Color::GRAY . ']', 100);
+                                SkyWars::getBossbar()->updateFor($player, Color::BOLD . Color::GREEN . '» ' . Color::RESET . Color::GRAY . 'Starting game in ' . Color::GREEN . PluginUtils::getTimeParty($timelobby) . Color::GRAY . ' seconds' . Color::BOLD . Color::GREEN . ' «' . Color::RESET . "\n\n" . Color::GRAY . '            ' . 'OP [' . Color::GREEN . count(SkyWars::$data['vote'][Arena::getName($arena)]['op']) . Color::GRAY . ']' . ' - ' . 'Basic [' . Color::GREEN . count(SkyWars::$data['vote'][Arena::getName($arena)]['normal']) . Color::GRAY . ']', 100);
                                 if (count(Arena::getPlayers($arena)) == Arena::getSpawns($arena)) {
                                     $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::YELLOW . ' The arena has reached its maximum capacity, starting the game.');
                                     Arena::setStatus($arena, 'starting');
@@ -71,46 +74,52 @@ class GameScheduler extends Task {
                                 $player->teleport($spawns);
                                 $player->getInventory()->clearAll();
                                 $player->getArmorInventory()->clearAll();
+                                $player->getInventory()->addItem(Item::get(274, 0, 1));
                                 Arena::setStatus($arena, 'ingame');
                                 SkyWars::$data['damager'][$player->getName()] = 'string';
+                                $kits = SkyWars::getConfigs('kits');
+                                PluginUtils::getKits($player, $kits->get($player->getName()));
                                 PluginUtils::playSound($player, 'conduit.activate', 1, 1);
                                 $player->broadcastEntityEvent(ActorEventPacket::CONSUME_TOTEM);
                                 if (count(SkyWars::$data['vote'][Arena::getName($arena)]['op']) > count(SkyWars::$data['vote'][Arena::getName($arena)]['normal'])) {
                                     $player->addTitle(Color::GREEN . Color::BOLD . 'Starting', Color::GRAY . 'Mode: OP');
                                     PluginUtils::chestOP(Arena::getName($arena));
                                 } else {
-                                    $player->addTitle(Color::GREEN . Color::BOLD . 'Starting', Color::GRAY . 'Mode: Default');
+                                    $player->addTitle(Color::GREEN . Color::BOLD . 'Starting', Color::GRAY . 'Mode: Basic');
                                     PluginUtils::chestDefault(Arena::getName($arena));
                                 }
                                 $player->setGamemode(0);
                             }
                         }
                     } else if (Arena::getStatus($arena) == 'ingame') {
+                        $arenas->setTime(0);
+                        $arenas->stopTime();
                         $timegame--;
                         $timerefill--;
                         Arena::setTimeGame($arena, $timegame);
                         Arena::setTimeRefill($arena, $timerefill);
                         foreach ($arenas->getPlayers() as $player) {
+                            $player->setNameTag(Color::DARK_GRAY . '[' . Color::GRAY . $player->getID() . Color::DARK_GRAY . ']' . ' ' . Color::GRAY . $player->getName());
+                            $player->setScoreTag(PluginUtils::viewHealth($player) . "\n" . Device::getDevice($player));
                             SkyWars::getBossbar()->updateFor($player, '   ' . Color::BOLD . Color::GREEN . '» ' . Color::RESET . Color::GRAY . 'The game ends in ' . Color::GREEN . PluginUtils::getTimeParty($timegame) . Color::GRAY . ' seconds' . Color::BOLD . Color::GREEN . ' «' . Color::RESET . "\n\n" . Color::GRAY . 'Alive: ' . Color::GREEN . count(Arena::getPlayers($arena)) . '/' . Arena::getSpawns($arena) . '   ' . Color::GRAY . 'Spectators: ' . Color::GREEN . count(Arena::getSpecters($arena)) . '   ' . Color::GRAY . 'Refill in: ' . Color::GREEN . PluginUtils::getTimeParty($timerefill) . Color::RESET, 100);
                             if ($timerefill == 0) {
+                                if (count(SkyWars::$data['vote'][Arena::getName($arena)]['op']) > count(SkyWars::$data['vote'][Arena::getName($arena)]['normal'])) {
+                                    $player->addTitle(Color::AQUA . Color::BOLD . 'Filled Chests', Color::GRAY . 'Mode: OP');
+                                    PluginUtils::chestOP(Arena::getName($arena));
+                                } else {
+                                    $player->addTitle(Color::AQUA . Color::BOLD . 'Filled Chests', Color::GRAY . 'Mode: Basic');
+                                    PluginUtils::chestDefault(Arena::getName($arena));
+                                }
+                                $player->getLevel()->broadcastLevelSoundEvent($player, LevelSoundEventPacket::SOUND_CHEST_OPEN);
+                                Arena::setTimeRefill($arena, 180);
+                            }
+                            #animations.
+                            if ($timegame == 599) {
                                 if (count(SkyWars::$data['vote'][Arena::getName($arena)]['op']) > count(SkyWars::$data['vote'][Arena::getName($arena)]['normal'])) {
                                     PluginUtils::chestOP(Arena::getName($arena));
                                 } else {
                                     PluginUtils::chestDefault(Arena::getName($arena));
                                 }
-                                switch (rand(1, 2)) {
-                                    case 1:
-                                        $player->addTitle(Color::AQUA . Color::BOLD . 'Filled Chests', Color::GRAY . 'Mode: OP');
-                                    break;
-                                    case 2:
-                                        $player->addTitle(Color::AQUA . Color::BOLD . 'Filled Chests', Color::GRAY . 'Mode: Default');
-                                    break;
-                                }
-                                $player->getLevel()->broadcastLevelSoundEvent($player, LevelSoundEventPacket::SOUND_CHEST_OPEN);
-                                Arena::setTimeRefill($arena, 120);
-                            }
-                            #animations.
-                            if ($timegame == 599) {
                                 $player->sendMessage(Color::BOLD . Color::GREEN . '» ' . Color::RESET . Color::GRAY . 'Activating blows and damage in the game in: ' . Color::GREEN . '10');
                                 $player->getLevel()->broadcastLevelSoundEvent($player, LevelSoundEventPacket::SOUND_BUBBLE_POP);
                             } else if ($timegame == 594) {
@@ -140,14 +149,15 @@ class GameScheduler extends Task {
                                     $user = SkyWars::getDatabase()->getUser();
                                     if ($user->inDatabase($player)) {
                                         $user->addWins($player, 1);
+                                        $user->addCoins($player, 3);
                                     }
                                     $arenas->setTime(20000);
                                     $arenas->stopTime();
                                     $player->addTitle(Color::GREEN . Color::BOLD . 'Congratulations', Color::GRAY . '@HonorGames_');
                                     $player->setGamemode(0);
-                                    $player->getInventory()->clearAll();
+                                    //$player->getInventory()->clearAll();
                                     $player->getArmorInventory()->clearAll();
-                                    //Loader::addRocketSW($player);
+                                    SkyWars::getInstance()->getScheduler()->scheduleRepeatingTask(new FireworksTask($player), 10);
                                 } else if ($player->getGamemode() == 3) {
                                     $player->addTitle(Color::GREEN . Color::BOLD . 'You Loser', Color::GRAY . '@HonorGames_');
                                     $player->getInventory()->clearAll();
@@ -159,6 +169,8 @@ class GameScheduler extends Task {
                         $timeend--;
                         Arena::setTimeEnd($arena, $timeend);
                         foreach ($arenas->getPlayers() as $player) {
+                            $player->setNameTag(Color::DARK_GRAY . '[' . Color::GRAY . $player->getID() . Color::DARK_GRAY . ']' . ' ' . Color::GRAY . $player->getName());
+                            $player->setScoreTag(Device::getDevice($player));
                             SkyWars::getBossbar()->updateFor($player, Color::BOLD . Color::GREEN . '» ' . Color::RESET . Color::GRAY . 'Reseting game in ' . Color::GREEN . $timeend . Color::GRAY . ' seconds' . Color::BOLD . Color::GREEN . ' «' . Color::RESET, 100);
                         }
                         if ($timeend == 4) {

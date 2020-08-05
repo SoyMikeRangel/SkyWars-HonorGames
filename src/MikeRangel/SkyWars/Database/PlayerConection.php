@@ -47,8 +47,6 @@ class PlayerConection {
             $username = $player->getName();
             $sql = $this->getMySQL()->query("DELETE FROM skywars where name='$username'");
             $this->getMySQL()->close();
-        } else {
-            throw new RuntimeException('This player does not exist in the database.');
         }
     }
 
@@ -65,8 +63,6 @@ class PlayerConection {
             $final = $wins + $value;
             $this->getMySQL()->query("UPDATE skywars SET wins='$final' WHERE name='$username'");
             $this->getMySQL()->close();
-        } else {
-            throw new RuntimeException('This player does not exist in the database.');
         }
     }
 
@@ -85,8 +81,6 @@ class PlayerConection {
                 $this->getMySQL()->query("UPDATE skywars SET wins='$final' WHERE name='$username'");
                 $this->getMySQL()->close();
             }
-        } else {
-            throw new RuntimeException('This player does not exist in the database.');
         }
     }
 
@@ -103,8 +97,6 @@ class PlayerConection {
             $final = $kills + $value;
             $this->getMySQL()->query("UPDATE skywars SET kills='$final' WHERE name='$username'");
             $this->getMySQL()->close();
-        } else {
-            throw new RuntimeException('This player does not exist in the database.');
         }
     }
 
@@ -123,8 +115,40 @@ class PlayerConection {
                 $this->getMySQL()->query("UPDATE skywars SET kills='$final' WHERE name='$username'");
                 $this->getMySQL()->close();
             }
-        } else {
-            throw new RuntimeException('This player does not exist in the database.');
+        }
+    }
+
+    public function addCoins(Player $player, int $value) {
+        $coins = 0;
+        if ($this->inDatabase($player)) {
+            $username = $player->getName();
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM users");
+            while ($out = mysqli_fetch_array($request)) {
+                if ($username == $out['name']) {
+                    $coins = $out['coins'];
+                }
+            }
+            $final = $coins + $value;
+            $this->getMySQL()->query("UPDATE users SET coins='$final' WHERE name='$username'");
+            $this->getMySQL()->close();
+        }
+    }
+
+    public function removeCoins(Player $player, int $value) {
+        $coins = 0;
+        if ($this->inDatabase($player)) {
+            $username = $player->getName();
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM users");
+            while ($out = mysqli_fetch_array($request)) {
+                if ($username == $out['name']) {
+                    $coins = $out['coins'];
+                }
+            }
+            $final = $coins - $value;
+            if ($coins > 0) {
+                $this->getMySQL()->query("UPDATE users SET coins='$final' WHERE name='$username'");
+                $this->getMySQL()->close();
+            }
         }
     }
 }
