@@ -14,7 +14,6 @@ use pocketmine\level\sound\{EndermanTeleportSound};
 
 class ArenaID extends Task {
     public $time = 1;
-    public static $id = 1;
     public $player;
 
     public function __construct(Player $player) {
@@ -26,28 +25,32 @@ class ArenaID extends Task {
         if (in_array($player->getName(), SkyWars::$data['queue'])) {
             $this->time--;
             if ($this->time == 0) {
+                $database = SkyWars::getDatabase()->getArenas();
                 $index = array_search($player->getName(), SkyWars::$data['queue']);
 		        if ($index != -1) {
 			        unset(SkyWars::$data['queue'][$index]);
                 }
-                if (Arena::getArenas() == null) {
+                if ($database->getArenas() == 0) {
                     $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::RED . ' No arenas available for now,' . Color::RED . ' try again.');
                     Proxy::transfer($player, 'lobby');
                 } else {
-                    $arenas = (count(Arena::getArenas()) + 1);
-                    if (self::$id >= $arenas) {
-                        self::$id = 1;
+                    $arenas = ($database->getArenas() + 1);
+                    if ($database->getID() >= $arenas) {
+                        $id = ($database->getID() + 1);
+                        $database->setID($id);
                         $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::YELLOW . ' New found arena, you will be transferred.');
                         if (!in_array($player->getName(), SkyWars::$data['queue'])) {
                             SkyWars::$data['queue'][] = $player->getName();
                             SkyWars::getInstance()->getScheduler()->scheduleRepeatingTask(new NewID($player), 10);
                         }
                     } else {
-                        if (count(Arena::getArenas()) > 0) {
-                            if (Arena::getStatus('SW-' . self::$id) == 'waiting') {
-                                PluginUtils::joinSolo($player, 'SW-' . self::$id);
+                        if ($database->getArenas() > 0) {
+                            if ($database->getStatus('SW-' . $database->getID()) == 'waiting') {
+                                Proxy::transfer($player, 'SW-' . $database->getID())
+                                PluginUtils::joinSolo($player, 'SW-' . $database->getID());
                             } else {
-                                self::$id++;
+                                $id = ($database->getID() + 1);
+                                $database->setID($id);
                                 $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::YELLOW . ' New found arena, you will be transferred.');
                                 if (!in_array($player->getName(), SkyWars::$data['queue'])) {
                                     SkyWars::$data['queue'][] = $player->getName();

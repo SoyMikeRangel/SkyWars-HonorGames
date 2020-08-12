@@ -17,6 +17,7 @@ class GameScheduler extends Task {
     public function onRun(int $currentTick) : void {
         if (count(Arena::getArenas()) > 0) {
             foreach (Arena::getArenas() as $arena) {
+                $database = SkyWars::getDatabase()->getArenas();
                 $arenas = Server::getInstance()->getLevelByName(Arena::getName($arena));
                 $timelobby = Arena::getTimeWaiting($arena);
                 $timestarting = Arena::getTimeStarting($arena);
@@ -24,7 +25,7 @@ class GameScheduler extends Task {
                 $timerefill = Arena::getTimeRefill($arena);
                 $timeend = Arena::getTimeEnd($arena);
                 if ($arenas instanceof Level) {
-                    if (Arena::getStatus($arena) == 'waiting') {
+                    if ($database->getStatus($arena) == 'waiting') {
                         $arenas->setTime(20000);
                         $arenas->stopTime();
                         foreach ($arenas->getPlayers() as $player) {
@@ -45,7 +46,7 @@ class GameScheduler extends Task {
                                 SkyWars::getBossbar()->updateFor($player, Color::BOLD . Color::GREEN . '» ' . Color::RESET . Color::GRAY . 'Starting game in ' . Color::GREEN . PluginUtils::getTimeParty($timelobby) . Color::GRAY . ' seconds' . Color::BOLD . Color::GREEN . ' «' . Color::RESET . "\n\n" . Color::GRAY . '            ' . 'OP [' . Color::GREEN . count(SkyWars::$data['vote'][Arena::getName($arena)]['op']) . Color::GRAY . ']' . ' - ' . 'Basic [' . Color::GREEN . count(SkyWars::$data['vote'][Arena::getName($arena)]['normal']) . Color::GRAY . ']', 100);
                                 if (count(Arena::getPlayers($arena)) == Arena::getSpawns($arena)) {
                                     $player->sendMessage(Color::BOLD . Color::GREEN . '»' . Color::RESET . Color::YELLOW . ' The arena has reached its maximum capacity, starting the game.');
-                                    Arena::setStatus($arena, 'starting');
+                                    $database->setStatus($arena, 'starting');
                                     $player->getInventory()->clearAll();
                                     $player->getArmorInventory()->clearAll();
                                 }
@@ -54,13 +55,13 @@ class GameScheduler extends Task {
                                     $player->getLevel()->broadcastLevelSoundEvent($player, LevelSoundEventPacket::SOUND_NOTE, $timestarting);
                                 }
                                 if ($timelobby == 0) {
-                                    Arena::setStatus($arena, 'starting');
+                                    $database->setStatus($arena, 'starting');
                                     $player->getInventory()->clearAll();
                                     $player->getArmorInventory()->clearAll();
                                 }
                             }
                         }
-                    } else if (Arena::getStatus($arena) == 'starting') {
+                    } else if ($database->getStatus($arena) == 'starting') {
                         $alive = 0;
                         $timestarting--;
                         Arena::setTimeStarting($arena, $timestarting);
@@ -75,7 +76,7 @@ class GameScheduler extends Task {
                                 $player->getInventory()->clearAll();
                                 $player->getArmorInventory()->clearAll();
                                 $player->getInventory()->addItem(Item::get(274, 0, 1));
-                                Arena::setStatus($arena, 'ingame');
+                                $database->setStatus($arena, 'ingame');
                                 SkyWars::$data['damager'][$player->getName()] = 'string';
                                 $kits = SkyWars::getConfigs('kits');
                                 PluginUtils::getKits($player, $kits->get($player->getName()));
@@ -91,7 +92,7 @@ class GameScheduler extends Task {
                                 $player->setGamemode(0);
                             }
                         }
-                    } else if (Arena::getStatus($arena) == 'ingame') {
+                    } else if ($database->getStatus($arena) == 'ingame') {
                         $arenas->setTime(0);
                         $arenas->stopTime();
                         $timegame--;
@@ -141,10 +142,10 @@ class GameScheduler extends Task {
                                 $this->pvp = 11;
                                 $player->getLevel()->broadcastLevelSoundEvent($player, LevelSoundEventPacket::SOUND_BUBBLE_UP);
                             } else if ($timegame == 0) {
-                                Arena::setStatus($arena, 'end');
+                                $database->setStatus($arena, 'end');
                             }
                             if (count(Arena::getPlayers($arena)) == 1) {
-                                Arena::setStatus($arena, 'end');
+                                $database->setStatus($arena, 'end');
                                 if ($player->getGamemode() == 0) {
                                     $user = SkyWars::getDatabase()->getUser();
                                     if ($user->inDatabase($player)) {
@@ -165,7 +166,7 @@ class GameScheduler extends Task {
                                 }
                             }
                         }
-                    } else if (Arena::getStatus($arena) == 'end') {
+                    } else if ($database->getStatus($arena) == 'end') {
                         $timeend--;
                         Arena::setTimeEnd($arena, $timeend);
                         foreach ($arenas->getPlayers() as $player) {

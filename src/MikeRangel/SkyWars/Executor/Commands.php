@@ -38,7 +38,8 @@ class Commands extends PluginCommand {
                 if ($player->isOp()) {
                     if (isset($args[1], $args[2], $args[3])) {
                         if (file_exists(Server::getInstance()->getDataPath() . 'worlds/' . $args[1])) {
-                            if (Arena::ArenaExiting($args[3])) {
+                            $database = SkyWars::getDatabase()->getArenas();
+                            if ($database->inDatabase('SW-' . $args[3])) {
                                 Arena::addArena($player, $args[1], $args[2], $args[3]);
                             } else {
                                 $player->sendMessage(SkyWars::getPrefix() . Color::RED . 'This arena already exists.');

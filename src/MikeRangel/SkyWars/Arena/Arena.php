@@ -37,14 +37,6 @@ class Arena {
         return $specters;
     }
 
-    public static function ArenaExiting(string $id) {
-        if (file_exists(SkyWars::getInstance()->getDataFolder() . 'Arenas/SW-' . $id . '.yml')) {
-            return false;
-        } else {
-            return true;
-        }
-    }
-
     public static function getArenas() : array {
         $arenas = [];
 		if ($handle = opendir(SkyWars::getInstance()->getDataFolder() . 'Arenas/')) {
@@ -60,6 +52,7 @@ class Arena {
 	}
 
     public static function addArena(Player $player, string $arena, string $slots, string $id) {
+        $database = SkyWars::getDatabase()->getArenas();
         Server::getInstance()->loadLevel($arena);
         Server::getInstance()->getLevelByName($arena)->loadChunk(Server::getInstance()->getLevelByName($arena)->getSafeSpawn()->getFloorX(), Server::getInstance()->getLevelByName($arena)->getSafeSpawn()->getFloorZ());
         $player->teleport(Server::getInstance()->getLevelByName($arena)->getSafeSpawn(), 0, 0);
@@ -72,7 +65,6 @@ class Arena {
         $config = new Config(SkyWars::getInstance()->getDataFolder() . 'Arenas/SW-' . SkyWars::$data['id'][$player->getName()] . '.yml', Config::YAML, [
             'arena' => $arena,
             'maxslots' => $slots,
-            'status' => 'editing',
             'lobbytime' => 60,
             'startingtime' => 1,
             'gametime' => 600,
@@ -80,6 +72,7 @@ class Arena {
             'endtime' => 9
         ]);
         $config->save();
+        $database->add('SW-' . SkyWars::$data['id'][$player->getName()]);
         $player->sendMessage(SkyWars::getPrefix() . Color::GREEN . 'Arena created successfully.' . "\n" . Color::GREEN . 'You are now in configuration mode.');
     }
 
@@ -126,7 +119,7 @@ class Arena {
         return $config->get('arena');
     }
 
-    public static function setStatus(string $arena, string $value) {
+    /*public static function setStatus(string $arena, string $value) {
         $config = SkyWars::getConfigs('Arenas/' . $arena);
         $config->set('status', $value);
         $config->save();
@@ -135,7 +128,7 @@ class Arena {
     public static function getStatus(string $arena) {
         $config = SkyWars::getConfigs('Arenas/' . $arena);
         return $config->get('status');
-    }
+    }*/
 
     public static function setTimeWaiting(string $arena, int $value) {
         $config = SkyWars::getConfigs('Arenas/' . $arena);

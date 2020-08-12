@@ -16,8 +16,7 @@ class SkyWars extends PluginBase {
     public static $access = [
         'host' => '127.0.0.1',
         'user' => 'mikerangel',
-        'password' => 'pulguis36',
-        'database' => 'honorgames'
+        'password' => 'pulguis36'
     ];
     public static $data = [
         'prefix' => Color::GOLD . '',
@@ -40,6 +39,8 @@ class SkyWars extends PluginBase {
             $this->getServer()->shutdown();
         } else {
             $this->getLogger()->info(Color::GREEN . 'Connection to the database has been successfully established.');
+            self::getDatabase()->createOthers();
+            self::getDatabase()->getArenas()->addID();
         }
         ItemFactory::registerItem(new Fireworks());
         Item::initCreativeItems();
@@ -107,6 +108,7 @@ class SkyWars extends PluginBase {
     public function loadArenas() : void {
         foreach (Arena::getArenas() as $arena) {
             if (count(Arena::getArenas()) > 0) {
+                self::getDatabase()->getArenas()->setID(1);
                 self::getReloadArena($arena);
                 ResetMap::resetZip(Arena::getName($arena));
             }

@@ -6,6 +6,7 @@ declare(strict_types=1);
  * Server: @HonorGames_ 
 */
 namespace MikeRangel\SkyWars\Database;
+use MikeRangel\SkyWars\{SkyWars};
 use pocketmine\{Server, Player};
 use RuntimeException;
 use mysqli;
@@ -18,12 +19,34 @@ class PlayerConection {
     }
 
     public function getMySQL() : mysqli {
-        return new mysqli(self::$data['host'], self::$data['user'], self::$data['password'], self::$data['database']);
+        return new mysqli(self::$data['host'], self::$data['user'], self::$data['password'], 'minigames');
+    }
+
+    public function createTable() : void {
+        $sql = $this->getMySQL()->query("SELECT table_name FROM information_schema.tables WHERE table_schema='minigames' AND table_name='skywarslb'");
+        $count = $sql->num_rows;
+        if ($count == 0) {
+            $table = $this->getMySQL()->query("CREATE TABLE skywarslb(
+                id int UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                name text NOT NULL,
+                experience int NOT NULL,
+                plays int NOT NULL,
+                wins int NOT NULL,
+                kills int NOT NULL,
+                deaths int NOT NULL
+            )");
+            if ($table) {
+                SkyWars::getInstance()->getLogger()->notice(Color::GREEN . 'The skywarslb table has been created successfully.');
+            } else {
+                SkyWars::getInstance()->getLogger()->notice(Color::GREEN . 'The skywarslb table was not created correctly.');
+            }
+            $this->getMySQL()->close();
+        }
     }
 
     public function inDatabase(Player $player) : bool {
         $username = $player->getName();
-        $sql = $this->getMySQL()->query("SELECT * FROM skywars where name='$username'");
+        $sql = $this->getMySQL()->query("SELECT * FROM skywarslb where name='$username'");
         $count = $sql->num_rows;
         if ($count == 0) {
             return false;
@@ -37,7 +60,7 @@ class PlayerConection {
         if (!$this->inDatabase($player)) {
             $username = $player->getName();
             $ip = $player->getAddress();
-            $this->getMySQL()->query("INSERT INTO skywars (name, wins, kills) VALUES ('$username', 0, 0)");
+            $this->getMySQL()->query("INSERT INTO skywarslb (name, experience, plays, wins, kills, deaths) VALUES ('$username', 0, 0, 0, 0, 0)");
             $this->getMySQL()->close();
         }
     }
@@ -45,8 +68,76 @@ class PlayerConection {
     public function remove(Player $player) {
         if ($this->inDatabase($player)) {
             $username = $player->getName();
-            $sql = $this->getMySQL()->query("DELETE FROM skywars where name='$username'");
+            $sql = $this->getMySQL()->query("DELETE FROM skywarslb where name='$username'");
             $this->getMySQL()->close();
+        }
+    }
+
+    public function addXp(Player $player, int $value) {
+        $xp = 0;
+        if ($this->inDatabase($player)) {
+            $username = $player->getName();
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
+            while ($out = mysqli_fetch_array($request)) {
+                if ($username == $out['name']) {
+                    $xp = $out['experience'];
+                }
+            }
+            $final = $xp + $value;
+            $this->getMySQL()->query("UPDATE skywarslb SET experience='$final' WHERE name='$username'");
+            $this->getMySQL()->close();
+        }
+    }
+
+    public function removeXp(Player $player, int $value) {
+        $xp = 0;
+        if ($this->inDatabase($player)) {
+            $username = $player->getName();
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
+            while ($out = mysqli_fetch_array($request)) {
+                if ($username == $out['name']) {
+                    $xp = $out['experience'];
+                }
+            }
+            $final = $xp - $value;
+            if ($xp > 0) {
+                $this->getMySQL()->query("UPDATE skywarslb SET experience='$final' WHERE name='$username'");
+                $this->getMySQL()->close();
+            }
+        }
+    }
+
+    public function addPlays(Player $player, int $value) {
+        $plays = 0;
+        if ($this->inDatabase($player)) {
+            $username = $player->getName();
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
+            while ($out = mysqli_fetch_array($request)) {
+                if ($username == $out['name']) {
+                    $plays = $out['plays'];
+                }
+            }
+            $final = $plays + $value;
+            $this->getMySQL()->query("UPDATE skywarslb SET plays='$final' WHERE name='$username'");
+            $this->getMySQL()->close();
+        }
+    }
+
+    public function removePlays(Player $player, int $value) {
+        $plays = 0;
+        if ($this->inDatabase($player)) {
+            $username = $player->getName();
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
+            while ($out = mysqli_fetch_array($request)) {
+                if ($username == $out['name']) {
+                    $plays = $out['plays'];
+                }
+            }
+            $final = $plays - $value;
+            if ($plays > 0) {
+                $this->getMySQL()->query("UPDATE skywarslb SET plays='$final' WHERE name='$username'");
+                $this->getMySQL()->close();
+            }
         }
     }
 
@@ -54,14 +145,14 @@ class PlayerConection {
         $wins = 0;
         if ($this->inDatabase($player)) {
             $username = $player->getName();
-            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywars");
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
             while ($out = mysqli_fetch_array($request)) {
                 if ($username == $out['name']) {
                     $wins = $out['wins'];
                 }
             }
             $final = $wins + $value;
-            $this->getMySQL()->query("UPDATE skywars SET wins='$final' WHERE name='$username'");
+            $this->getMySQL()->query("UPDATE skywarslb SET wins='$final' WHERE name='$username'");
             $this->getMySQL()->close();
         }
     }
@@ -70,7 +161,7 @@ class PlayerConection {
         $wins = 0;
         if ($this->inDatabase($player)) {
             $username = $player->getName();
-            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywars");
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
             while ($out = mysqli_fetch_array($request)) {
                 if ($username == $out['name']) {
                     $wins = $out['wins'];
@@ -78,7 +169,7 @@ class PlayerConection {
             }
             $final = $wins - $value;
             if ($wins > 0) {
-                $this->getMySQL()->query("UPDATE skywars SET wins='$final' WHERE name='$username'");
+                $this->getMySQL()->query("UPDATE skywarslb SET wins='$final' WHERE name='$username'");
                 $this->getMySQL()->close();
             }
         }
@@ -88,14 +179,14 @@ class PlayerConection {
         $kills = 0;
         if ($this->inDatabase($player)) {
             $username = $player->getName();
-            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywars");
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
             while ($out = mysqli_fetch_array($request)) {
                 if ($username == $out['name']) {
                     $kills = $out['kills'];
                 }
             }
             $final = $kills + $value;
-            $this->getMySQL()->query("UPDATE skywars SET kills='$final' WHERE name='$username'");
+            $this->getMySQL()->query("UPDATE skywarslb SET kills='$final' WHERE name='$username'");
             $this->getMySQL()->close();
         }
     }
@@ -104,7 +195,7 @@ class PlayerConection {
         $kills = 0;
         if ($this->inDatabase($player)) {
             $username = $player->getName();
-            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywars");
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
             while ($out = mysqli_fetch_array($request)) {
                 if ($username == $out['name']) {
                     $kills = $out['kills'];
@@ -112,7 +203,41 @@ class PlayerConection {
             }
             $final = $kills - $value;
             if ($kills > 0) {
-                $this->getMySQL()->query("UPDATE skywars SET kills='$final' WHERE name='$username'");
+                $this->getMySQL()->query("UPDATE skywarslb SET kills='$final' WHERE name='$username'");
+                $this->getMySQL()->close();
+            }
+        }
+    }
+
+    public function addDeaths(Player $player, int $value) {
+        $deaths = 0;
+        if ($this->inDatabase($player)) {
+            $username = $player->getName();
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
+            while ($out = mysqli_fetch_array($request)) {
+                if ($username == $out['name']) {
+                    $deaths = $out['deaths'];
+                }
+            }
+            $final = $deaths + $value;
+            $this->getMySQL()->query("UPDATE skywarslb SET deaths='$final' WHERE name='$username'");
+            $this->getMySQL()->close();
+        }
+    }
+
+    public function removeDeaths(Player $player, int $value) {
+        $deaths = 0;
+        if ($this->inDatabase($player)) {
+            $username = $player->getName();
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
+            while ($out = mysqli_fetch_array($request)) {
+                if ($username == $out['name']) {
+                    $deaths = $out['deaths'];
+                }
+            }
+            $final = $deaths - $value;
+            if ($deaths > 0) {
+                $this->getMySQL()->query("UPDATE skywarslb SET deaths='$final' WHERE name='$username'");
                 $this->getMySQL()->close();
             }
         }
@@ -122,14 +247,14 @@ class PlayerConection {
         $coins = 0;
         if ($this->inDatabase($player)) {
             $username = $player->getName();
-            $request = mysqli_query($this->getMySQL(), "SELECT * FROM users");
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
             while ($out = mysqli_fetch_array($request)) {
                 if ($username == $out['name']) {
                     $coins = $out['coins'];
                 }
             }
             $final = $coins + $value;
-            $this->getMySQL()->query("UPDATE users SET coins='$final' WHERE name='$username'");
+            $this->getMySQL()->query("UPDATE skywarslb SET coins='$final' WHERE name='$username'");
             $this->getMySQL()->close();
         }
     }
@@ -138,7 +263,7 @@ class PlayerConection {
         $coins = 0;
         if ($this->inDatabase($player)) {
             $username = $player->getName();
-            $request = mysqli_query($this->getMySQL(), "SELECT * FROM users");
+            $request = mysqli_query($this->getMySQL(), "SELECT * FROM skywarslb");
             while ($out = mysqli_fetch_array($request)) {
                 if ($username == $out['name']) {
                     $coins = $out['coins'];
@@ -146,7 +271,7 @@ class PlayerConection {
             }
             $final = $coins - $value;
             if ($coins > 0) {
-                $this->getMySQL()->query("UPDATE users SET coins='$final' WHERE name='$username'");
+                $this->getMySQL()->query("UPDATE skywarslb  SET coins='$final' WHERE name='$username'");
                 $this->getMySQL()->close();
             }
         }
