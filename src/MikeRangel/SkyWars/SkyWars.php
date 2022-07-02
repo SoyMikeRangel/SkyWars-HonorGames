@@ -3,7 +3,8 @@ declare(strict_types=1);
 /* 
  * Author: @MikeRangelMR
  * Status: Private
- * Server: @PacmanLivePE 
+ * Server: None
+ * Status: Private
 */
 namespace MikeRangel\SkyWars;
 use MikeRangel\SkyWars\{Database\MySQL, Arena\Arena, Bossbar\Bossbar, Executor\Commands, Tasks\NewMap, Events\GlobalEvents, Tasks\GameScheduler, Extensions\entity\FireworksRocket, Extensions\item\Fireworks};
